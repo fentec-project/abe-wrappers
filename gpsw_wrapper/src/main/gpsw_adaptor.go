@@ -23,7 +23,6 @@ package main
 import "C"
 
 import (
-	//	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"github.com/fentec-project/gofe/abe"
@@ -35,42 +34,60 @@ import (
 // in order to save and load keys from files
 
 //export GenerateMasterKeys
-func GenerateMasterKeys(path string, ownerName string, name string, numAtt int, debug string) *C.char {
+func GenerateMasterKeys(path string, numAtt int, debug string) *C.char {
 	b := string(numAtt)
 
 	printMsg("GenerateMasterKeys with num attr: "+b, debug)
 	a := abe.NewGPSW(numAtt)
-	WriteGob(path+"gpsw"+ownerName+"_"+name+".gob", a)
+	err := WriteGob_pn(path, "abe.gob", a)
+	if err != nil {
+		printMsg("There has been an error while creating GPSW",debug)
+		fmt.Println(err)
+		fmt.Errorf("Failed to write gpsw file: %v", err)
+		output := fmt.Sprintf("%s: %s", "Error", err)
+		return C.CString(output)
+	}
 
 	printMsg("GenerateMasterKeys: write gpsw ok", debug)
 
 	pubKey, secKey, err := a.GenerateMasterKeys()
 	if err != nil {
-		fmt.Errorf("Failed to generate master key: %v", err)
+		fmt.Errorf("Failed to generate Master and Secret keys: %v", err)
 		output := fmt.Sprintf("%s: %s", "Error", err)
 		return C.CString(output)
 
 	}
 
-	WriteGob(path+"pubgpsw"+ownerName+"_"+name+".gob", pubKey)
-	printMsg("GenerateMasterKeys: write pubkey ok", debug)
+	err = WriteGob_pn(path, "PK.gob", pubKey)
+	if err != nil {
+		fmt.Errorf("Failed to write PK file: %v", err)
+		output := fmt.Sprintf("%s: %s", "Error", err)
+		return C.CString(output)
+	}
+	printMsg("GenerateMasterKeys: write PK ok", debug)
 
-	WriteGob(path+"masterKeygpsw"+ownerName+"_"+name+".gob", secKey)
-	printMsg("GenerateMasterKeys: write secKey ok", debug)
+	err = WriteGob_pn(path, "MK.gob", secKey)
+	if err != nil {
+		fmt.Errorf("Failed to write MK file: %v", err)
+		output := fmt.Sprintf("%s: %s", "Error", err)
+		return C.CString(output)
+	}
+	printMsg("GenerateMasterKeys: write MK ok", debug)
 
 	return C.CString("ok")
 }
 
 //export Encrypt
-func Encrypt(path string, ownerName string, name string, msg string, gamma []int, debug string) *C.char {
+func Encrypt(path string, msg string, gamma []int, debug string) *C.char {
+	//format gamma
 	gammastr := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(gamma)), ","), "[]")
 
-	printMsg("Encrypt gamma: "+gammastr, debug)
+	printMsg("Encrypt: gamma="+gammastr, debug)
 	a := new(abe.GPSW)
-	ReadGob(path+"gpsw"+ownerName+"_"+name+".gob", a)
+	ReadGob_pn(path, "abe.gob", a)
 
 	pubKey := new(abe.GPSWPubKey)
-	ReadGob(path+"pubgpsw"+ownerName+"_"+name+".gob", pubKey)
+	ReadGob_pn(path, "PK.gob", pubKey)
 
 	cipher, err := a.Encrypt(msg, gamma, pubKey)
 
@@ -80,18 +97,10 @@ func Encrypt(path string, ownerName string, name string, msg string, gamma []int
 		return C.CString(output)
 	}
 
-	//	cypherS := WriteTString(cipher)
 
 	s := WriteTCharA(cipher)
 
 	mis := WriteTString(cipher)
-	//	printMsg("Encrypt result in golang: ", debug)
-	//	printMsg(cypherS, debug)
-	//	printMsg("Encrypt end in golang", debug)
-	//	sEncoded := base64.StdEncoding.Strict().EncodeToString(s)
-	//	printMsg("Encrypted encoded: ", debug)
-	//	printMsg(sEncoded, debug)
-	//	printMsg("Encrypted end in golang", debug)
 
 	sEncodedHex := hex.EncodeToString(s)
 
@@ -102,42 +111,49 @@ func Encrypt(path string, ownerName string, name string, msg string, gamma []int
 
 }
 
-//export GeneratePolicyKeys
-func GeneratePolicyKeys(path string, ownerName string, name string, clientName string, policy string, attrib []int, debug string) *C.char {
 
+//export GeneratePolicyK
+func GeneratePolicyK(path string, path_user string, policy string, debug string) *C.char {
 	a := new(abe.GPSW)
-	ReadGob(path+"gpsw"+ownerName+"_"+name+".gob", a)
-	printMsg("GeneratePolicyKeys", debug)
-	//check existence of msp and private keys
+	ReadGob_pn(path, "abe.gob", a)
+	printMsg("GeneratePolicyK", debug)
 
 	msProgram, err := abe.BooleanToMSP(policy, true)
 
 	sk := new(data.Vector)
-	ReadGob(path+"masterKeygpsw"+ownerName+"_"+name+".gob", sk)
-	keyVector, err := a.GeneratePolicyKeys(msProgram, *sk)
+	ReadGob_pn(path, "MK.gob", sk)
+	abeKey, err := a.GeneratePolicyKey(msProgram, *sk)
 	if err != nil {
-		fmt.Errorf("Failed to create keyVector: %v", err)
+		fmt.Errorf("Failed to generate Policy Key: %v", err)
 		output := fmt.Sprintf("%s: %s", "Error", err)
 		return C.CString(output)
 	}
-
-	abeKey := a.DelegateKeys(keyVector, msProgram, attrib)
-	WriteGob(path+"abeKey"+ownerName+"_"+name+"_"+clientName+".gob", abeKey)
-
+	err = WriteGob_pn(path_user, "delegatedKey.gob", abeKey)
+	if err != nil {
+		fmt.Errorf("Failed to write policy key file: %v", err)
+		output := fmt.Sprintf("%s: %s", "Error", err)
+		return C.CString(output)
+	}
 	return C.CString("ok")
 }
 
+
 //export Decrypt
-func Decrypt(path string, ownerName string, name string, clientName string, cypherS string, debug string) *C.char {
+func Decrypt(path string, path_user string, cypherS string, debug string) *C.char {
+	defer func() {
+                if err := recover(); err != nil {
+			err = fmt.Errorf("Error: could not decrypt, panic in abe.decrypt")
+                }
 
+        }()
 	a := new(abe.GPSW)
-	ReadGob(path+"gpsw"+ownerName+"_"+name+".gob", a)
+	ReadGob_pn(path, "abe.gob", a)
 
-	printMsg("decrypt: cypherS:\n"+cypherS, debug)
+	printMsg("Decrypt: cypherS:\n"+cypherS, debug)
 
 	decodedHex, err := hex.DecodeString(cypherS)
 	if err != nil {
-		fmt.Errorf("decript. decoding hex error: %v", err)
+		fmt.Errorf("Decrypt: decoding hex error: %v", err)
 		output := fmt.Sprintf("%s: %s", "Error", err)
 		return C.CString(output)
 
@@ -146,14 +162,14 @@ func Decrypt(path string, ownerName string, name string, clientName string, cyph
 
 	ReadFCharA(decodedHex, cipher)
 	mis := WriteTString(cipher)
-	printMsg("decript cipher as string without encode:\n"+mis, debug)
+	printMsg("Decrypt: cipher as string without encode:\n"+mis, debug)
 
 	abekey := new(abe.GPSWKey)
-	ReadGob(path+"abeKey"+ownerName+"_"+name+"_"+clientName+".gob", abekey)
+	ReadGob_pn(path_user, "delegatedKey.gob", abekey)
 
 	msgCheck, err := a.Decrypt(cipher, abekey)
 	if err != nil {
-		fmt.Errorf("Failed to decrypt: %v", err)
+		fmt.Errorf("Decrypt: Failed to decrypt: %v", err)
 		output := fmt.Sprintf("%s: %s", "Error", err)
 		return C.CString(output)
 	}
