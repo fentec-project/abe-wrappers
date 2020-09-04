@@ -57,10 +57,10 @@ The project contains the implementation of wrappers for the two ABE implemented 
     * files:
         ````bash
         $PROJECT_HOME/gpsw_wrapper/gpsw_wrapper/java_gpsw_test/src/main/java/gpsw/GpswTest1.java
-	$PROJECT_HOME/gpsw_wrapper/gpsw_wrapper/java_gpsw_test/src/main/java/gpsw/Wrapper.java
-	$PROJECT_HOME/fame_wrapper/java_fame_test/src/main/java/main/java/fame/FameTest.java
-	$PROJECT_HOME/fame_wrapper/java_fame_test/src/main/java/main/java/fame/Wrapper.java
-	````
+        $PROJECT_HOME/gpsw_wrapper/gpsw_wrapper/java_gpsw_test/src/main/java/gpsw/Wrapper.java
+        $PROJECT_HOME/fame_wrapper/java_fame_test/src/main/java/main/java/fame/FameTest.java
+        $PROJECT_HOME/fame_wrapper/java_fame_test/src/main/java/main/java/fame/Wrapper.java
+        ````
 	    
     * Wrapper.java: implements the jna binding with the SO Library. This is:
         * an interface to declare data structures and methods provided by the SO library.
