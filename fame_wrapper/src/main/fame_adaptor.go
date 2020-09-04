@@ -160,9 +160,7 @@ func Decrypt(path string, pathGen string, cypherS string, debug string) *C.char 
 	
 	
 	if err != nil {
-		printMsg("ha habido un error en retrieving FAME",debug)
-		fmt.Println(err)
-		fmt.Errorf("Failed to write fame file: %v", err)
+		fmt.Errorf("Failed while reading fame.gob: %v", err)
 		output := fmt.Sprintf("%s: %s", "Error", err)
 		return C.CString(output)
 	}
@@ -180,18 +178,14 @@ func Decrypt(path string, pathGen string, cypherS string, debug string) *C.char 
 	key := new(abe.FAMEAttribKeys)
 	err = ReadGob_pn(pathGen, "genKey.gob", key)
 	if err != nil {
-		printMsg("ha habido un error en retrieving FAME",debug)
-		fmt.Println(err)
-		fmt.Errorf("Failed to write fame file: %v", err)
+		fmt.Errorf("Failed while reading genKey.gob: %v", err)
 		output := fmt.Sprintf("%s: %s", "Error", err)
 		return C.CString(output)
 	}
 	pk := new(abe.FAMEPubKey)
 	err = ReadGob_pn(path, "publicKey.gob", pk)
 	if err != nil {
-		printMsg("ha habido un error en retrieving FAME",debug)
-		fmt.Println(err)
-		fmt.Errorf("Failed to write fame file: %v", err)
+		fmt.Errorf("Failed while reading publicKey.gob: %v", err)
 		output := fmt.Sprintf("%s: %s", "Error", err)
 		return C.CString(output)
 	}

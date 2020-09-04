@@ -41,9 +41,7 @@ func GenerateMasterKeys(path string, numAtt int, debug string) *C.char {
 	a := abe.NewGPSW(numAtt)
 	err := WriteGob_pn(path, "abe.gob", a)
 	if err != nil {
-		printMsg("There has been an error while creating GPSW",debug)
-		fmt.Println(err)
-		fmt.Errorf("Failed to write gpsw file: %v", err)
+		fmt.Errorf("Failed to write abe.gob: %v", err)
 		output := fmt.Sprintf("%s: %s", "Error", err)
 		return C.CString(output)
 	}
